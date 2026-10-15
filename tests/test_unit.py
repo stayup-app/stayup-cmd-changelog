@@ -2,7 +2,7 @@
 (unittest.mock.patch on `requests.request`); its actual behavior is covered
 by stayup-api's own test suite. Git and the GitHub releases API are mocked too."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -97,7 +97,7 @@ class TestGetChangelogGitDate:
     def test_returns_datetime_on_valid_output(self, mock_run):
         mock_run.return_value = MagicMock(stdout="2024-06-15T12:00:00+00:00\n")
         result = get_changelog_git_date("/repo", "CHANGELOG.md")
-        assert result == datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        assert result == datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
 
     @patch("check_changelog.subprocess.run")
     def test_returns_none_on_empty_output(self, mock_run):
@@ -271,7 +271,7 @@ class TestSaveEntry:
     @patch("check_changelog.requests.request")
     def test_posts_a_single_item_with_version(self, mock_request):
         mock_request.return_value = mock_response({"success": True})
-        executed_at = datetime.now(tz=timezone.utc)
+        executed_at = datetime.now(tz=UTC)
         save_entry(1, "v1.0.0", "## v1.0\n- init", None, executed_at)
         item = mock_request.call_args.kwargs["json"]["items"][0]
         assert item["repositoryId"] == 1
@@ -282,7 +282,7 @@ class TestSaveEntry:
     @patch("check_changelog.requests.request")
     def test_accepts_a_none_version(self, mock_request):
         mock_request.return_value = mock_response({"success": True})
-        save_entry(1, None, "content", None, datetime.now(tz=timezone.utc))
+        save_entry(1, None, "content", None, datetime.now(tz=UTC))
         assert mock_request.call_args.kwargs["json"]["items"][0]["version"] is None
 
 
@@ -291,7 +291,7 @@ class TestSaveError:
     @patch("check_changelog.requests.request")
     def test_posts_the_error(self, mock_request):
         mock_request.return_value = mock_response({"success": True})
-        executed_at = datetime.now(tz=timezone.utc)
+        executed_at = datetime.now(tz=UTC)
         save_error(5, "something went wrong", executed_at)
         body = mock_request.call_args.kwargs["json"]
         assert body == {"repositoryId": 5, "error": "something went wrong", "executedAt": executed_at.isoformat()}
@@ -299,7 +299,7 @@ class TestSaveError:
     @patch("check_changelog.requests.request")
     def test_accepts_none_repository_id(self, mock_request):
         mock_request.return_value = mock_response({"success": True})
-        save_error(None, "error", datetime.now(tz=timezone.utc))
+        save_error(None, "error", datetime.now(tz=UTC))
         assert mock_request.call_args.kwargs["json"]["repositoryId"] is None
 
 
@@ -316,14 +316,14 @@ class TestProcessRepository:
     @patch("check_changelog.get_releases")
     def test_first_run_via_release_stores_only_latest(self, mock_releases, mock_saved, mock_save, mock_save_error):
         mock_releases.return_value = [
-            ("v1.1.0", "newer", datetime(2024, 6, 1, tzinfo=timezone.utc)),
-            ("v1.0.0", "older", datetime(2024, 1, 1, tzinfo=timezone.utc)),
+            ("v1.1.0", "newer", datetime(2024, 6, 1, tzinfo=UTC)),
+            ("v1.0.0", "older", datetime(2024, 1, 1, tzinfo=UTC)),
         ]
         mock_saved.return_value = set()
-        executed_at = datetime.now(tz=timezone.utc)
+        executed_at = datetime.now(tz=UTC)
         process_repository(1, "https://github.com/user/repo", executed_at, {})
 
-        mock_save.assert_called_once_with(1, "v1.1.0", "newer", datetime(2024, 6, 1, tzinfo=timezone.utc), executed_at)
+        mock_save.assert_called_once_with(1, "v1.1.0", "newer", datetime(2024, 6, 1, tzinfo=UTC), executed_at)
         mock_save_error.assert_not_called()
 
     @patch("check_changelog.save_error")
@@ -333,7 +333,7 @@ class TestProcessRepository:
     def test_no_insert_when_the_known_version_is_first(self, mock_releases, mock_saved, mock_save, _err):
         mock_releases.return_value = [("v1.0.0", "body", None)]
         mock_saved.return_value = {"v1.0.0"}
-        process_repository(1, "https://github.com/user/repo", datetime.now(tz=timezone.utc), {})
+        process_repository(1, "https://github.com/user/repo", datetime.now(tz=UTC), {})
         mock_save.assert_not_called()
 
     @patch("check_changelog.save_error")
@@ -347,7 +347,7 @@ class TestProcessRepository:
             ("v1.0.0", "b", None),
         ]
         mock_saved.return_value = {"v1.0.0"}
-        process_repository(1, "https://github.com/user/repo", datetime.now(tz=timezone.utc), {})
+        process_repository(1, "https://github.com/user/repo", datetime.now(tz=UTC), {})
 
         saved_versions = [call.args[1] for call in mock_save.call_args_list]
         assert saved_versions == ["v1.2.0", "v1.1.0"]
@@ -359,7 +359,7 @@ class TestProcessRepository:
     def test_capped_at_max_iterations(self, mock_releases, mock_saved, mock_save, _err):
         mock_releases.return_value = [(f"v{i}", "b", None) for i in range(5, 0, -1)]
         mock_saved.return_value = {"v0"}  # never matched: all 5 are "new"
-        process_repository(1, "https://github.com/user/repo", datetime.now(tz=timezone.utc), {"max_iterations": 2})
+        process_repository(1, "https://github.com/user/repo", datetime.now(tz=UTC), {"max_iterations": 2})
         assert mock_save.call_count == 2
 
     @patch("check_changelog.save_error")
@@ -371,7 +371,7 @@ class TestProcessRepository:
         mock_releases.return_value = []
         mock_from_repo.return_value = (None, "## Changelog\n- v1", None)
         mock_get_latest.return_value = None
-        process_repository(1, "https://github.com/user/repo", datetime.now(tz=timezone.utc), {})
+        process_repository(1, "https://github.com/user/repo", datetime.now(tz=UTC), {})
 
         mock_save.assert_called_once()
         assert mock_save.call_args[0][2] == "## Changelog\n- v1"
@@ -388,13 +388,13 @@ class TestProcessRepository:
         mock_releases.return_value = []
         mock_from_repo.return_value = (None, content, None)
         mock_get_latest.return_value = _content_hash(content)
-        process_repository(1, "https://github.com/user/repo", datetime.now(tz=timezone.utc), {})
+        process_repository(1, "https://github.com/user/repo", datetime.now(tz=UTC), {})
         mock_save.assert_not_called()
 
     @patch("check_changelog.save_error")
     @patch("check_changelog.get_releases")
     def test_logs_error_on_failure(self, mock_releases, mock_save_error):
         mock_releases.side_effect = Exception("network error")
-        executed_at = datetime.now(tz=timezone.utc)
+        executed_at = datetime.now(tz=UTC)
         process_repository(1, "https://github.com/user/repo", executed_at, {})
         mock_save_error.assert_called_once_with(1, "network error", executed_at)

@@ -20,7 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 
@@ -340,7 +340,7 @@ def main() -> None:
         print(f"Repository added: {args.add}")
         return
 
-    executed_at = datetime.now(tz=timezone.utc)
+    executed_at = datetime.now(tz=UTC)
     sources = get_sources()
 
     if not sources:
