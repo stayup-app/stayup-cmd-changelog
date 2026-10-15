@@ -55,69 +55,6 @@ API_KEY = os.environ.get("STAYUP_API_KEY")
 
 DEFAULT_MAX_ITERATIONS = 5
 
-# Display manifest: how the 3 apps (ui / desktop / mobile) render this
-# connector's rows, without a line of code on the app side. stayup-api relays it
-# as-is from provider_registry.template, without ever interpreting it.
-# Schema: see stayup-api/docs/self-hosting-and-providers.md.
-#
-# One entry = a release. `content` is raw text (light markdown), the repo
-# comes from the source (repository.url).
-DISPLAY_TEMPLATE = {
-    "version": 1,
-    "display": {
-        "name": DISPLAY_NAME,
-        # Self-describing icon (tintable SVG path, the apps' visual language:
-        # 1.75 stroke, currentColor). A release tag.
-        "icon": {
-            "paths": [
-                "M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z",
-                "M7 7h.01",
-            ],
-            "viewBox": "0 0 24 24",
-            "stroke": True,
-        },
-        "accent": "#f4b585",
-        "sortOrder": SORT_ORDER,
-        "feedLabel": {"path": "$source.url", "format": "urlSlug"},
-    },
-    "item": {
-        "parseContentAsJson": False,
-        "vars": {"repo": {"path": "$source.url", "format": "urlSlug"}},
-        "fields": {
-            "title": "{repo}",
-            "subtitle": "$row.version",
-            "summary": {"path": "content", "format": "stripMarkdown"},
-            "url": "https://github.com/{repo}/releases/tag/{$row.version}",
-            "timestamp": "$row.datetime",
-        },
-    },
-    "list": {
-        "layout": "row",
-        "primary": "title",
-        "secondary": "subtitle",
-        "meta": "timestamp",
-        "snippet": "summary",
-    },
-    "detail": {
-        "mode": "text",
-        "title": "{repo}",
-        "badge": "$row.version",
-        "body": {"path": "content", "format": "stripMarkdown"},
-        "openUrl": "https://github.com/{repo}/releases/tag/{$row.version}",
-        "openLabel": "Open on GitHub",
-    },
-    "form": {
-        "label": "GitHub repo (owner/repo or URL)",
-        "placeholder": "vercel/next.js",
-        "urlTemplate": "https://github.com/{value}/",
-        "transform": {
-            "trim": True,
-            "extract": r"github\.com/([^/]+/[^/]+)",
-            "stripSuffix": [".git", "/"],
-        },
-    },
-}
-
 
 # ---------------------------------------------------------------------------
 # stayup-api client
@@ -140,14 +77,13 @@ def api_request(method: str, path: str, **kwargs) -> dict | None:
 
 
 def register_provider() -> None:
-    """Self-declaration at startup — display name and display manifest."""
+    """Self-declaration at startup — display name and sort order."""
     api_request(
         "POST",
         "/register",
         json={
             "displayName": DISPLAY_NAME,
             "sortOrder": SORT_ORDER,
-            "template": DISPLAY_TEMPLATE,
         },
     )
 

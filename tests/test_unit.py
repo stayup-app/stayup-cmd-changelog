@@ -2,14 +2,12 @@
 (unittest.mock.patch on `requests.request`); its actual behavior is covered
 by stayup-api's own test suite. Git and the GitHub releases API are mocked too."""
 
-import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from check_changelog import (
-    DISPLAY_TEMPLATE,
     _content_hash,
     add_source,
     clone_repo,
@@ -199,7 +197,7 @@ def mock_response(json_body=None, status=200):
 @patch("check_changelog.API_KEY", "test-key")
 class TestRegisterProvider:
     @patch("check_changelog.requests.request")
-    def test_posts_display_name_sort_order_and_template(self, mock_request):
+    def test_posts_display_name_and_sort_order(self, mock_request):
         mock_request.return_value = mock_response()
         register_provider()
         method, url = mock_request.call_args[0]
@@ -208,7 +206,6 @@ class TestRegisterProvider:
         body = mock_request.call_args.kwargs["json"]
         assert body["displayName"] == "Changelog"
         assert body["sortOrder"] == 10
-        assert body["template"] == DISPLAY_TEMPLATE
 
 
 class TestApiRequestWithoutKey:
@@ -304,24 +301,6 @@ class TestSaveError:
         mock_request.return_value = mock_response({"success": True})
         save_error(None, "error", datetime.now(tz=timezone.utc))
         assert mock_request.call_args.kwargs["json"]["repositoryId"] is None
-
-
-class TestDisplayTemplate:
-    def test_round_trips_through_json_unchanged(self):
-        assert json.loads(json.dumps(DISPLAY_TEMPLATE)) == DISPLAY_TEMPLATE
-
-    def test_ships_a_self_describing_icon(self):
-        icon = DISPLAY_TEMPLATE["display"]["icon"]
-        assert isinstance(icon, dict)
-        assert icon["paths"]
-        assert all(p[:1] in ("M", "m") for p in icon["paths"])
-        assert icon["viewBox"] == "0 0 24 24"
-
-    def test_text_detail_with_open_on_github(self):
-        assert DISPLAY_TEMPLATE["version"] == 1
-        assert DISPLAY_TEMPLATE["detail"]["mode"] == "text"
-        assert DISPLAY_TEMPLATE["detail"]["openLabel"] == "Open on GitHub"
-        assert "{repo}" in DISPLAY_TEMPLATE["detail"]["openUrl"]
 
 
 # ---------------------------------------------------------------------------
